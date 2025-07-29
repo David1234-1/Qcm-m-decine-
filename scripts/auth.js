@@ -39,9 +39,22 @@ class AuthManager {
     // Formulaires d'authentification
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const resetPasswordForm = document.getElementById('reset-password-form');
     
     loginForm?.addEventListener('submit', (e) => this.handleLogin(e));
     registerForm?.addEventListener('submit', (e) => this.handleRegister(e));
+    resetPasswordForm?.addEventListener('submit', (e) => this.handleResetPassword(e));
+    
+    // Lien mot de passe oublié
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    forgotPasswordLink?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showResetPasswordForm();
+    });
+    
+    // Bouton retour à la connexion
+    const backToLoginBtn = document.getElementById('back-to-login');
+    backToLoginBtn?.addEventListener('click', () => this.showLoginForm());
     
     // Fermeture de la modal
     this.authOverlay?.addEventListener('click', (e) => {
@@ -101,6 +114,27 @@ class AuthManager {
     document.getElementById(`${tab}-form`).classList.add('active');
   }
 
+  showResetPasswordForm() {
+    const forms = document.querySelectorAll('.auth-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    forms.forEach(f => f.classList.remove('active'));
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    document.getElementById('reset-password-form').classList.add('active');
+  }
+
+  showLoginForm() {
+    const forms = document.querySelectorAll('.auth-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    forms.forEach(f => f.classList.remove('active'));
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    document.querySelector('[data-tab="login"]').classList.add('active');
+    document.getElementById('login-form').classList.add('active');
+  }
+
   async handleLogin(e) {
     e.preventDefault();
     
@@ -128,11 +162,30 @@ class AuthManager {
       return;
     }
     
+    if (password.length < 6) {
+      NotificationManager.show('Le mot de passe doit contenir au moins 6 caractères', 'error');
+      return;
+    }
+    
     try {
       await this.register(name, email, password);
       this.hideAuthModal();
     } catch (error) {
       NotificationManager.show('Erreur d\'inscription: ' + error.message, 'error');
+    }
+  }
+
+  async handleResetPassword(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('reset-email').value;
+    
+    try {
+      await this.resetPassword(email);
+      NotificationManager.show('Email de réinitialisation envoyé ! Vérifiez votre boîte mail.', 'success');
+      this.showLoginForm();
+    } catch (error) {
+      NotificationManager.show('Erreur lors de l\'envoi: ' + error.message, 'error');
     }
   }
 
@@ -152,6 +205,11 @@ class AuthManager {
     });
     
     return userCredential;
+  }
+
+  async resetPassword(email) {
+    const { auth, sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
+    return sendPasswordResetEmail(auth, email);
   }
 
   async handleGoogleAuth() {

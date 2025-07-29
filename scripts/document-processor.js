@@ -230,13 +230,16 @@ Références :
       generateQCM = true,
       generateFlashcards = true,
       qcmCount = 10,
-      flashcardCount = 10
+      flashcardCount = 10,
+      subject = 'Général'
     } = options;
     
     const result = {
       originalText: text,
       analysis: await this.analyzeContent(text),
-      concepts: await this.extractKeyConcepts(text)
+      concepts: await this.extractKeyConcepts(text),
+      subject: subject,
+      generatedAt: new Date().toISOString()
     };
     
     if (generateSummary && window.AIService) {
@@ -252,6 +255,83 @@ Références :
     }
     
     return result;
+  }
+
+  async saveGeneratedContent(content, fileName) {
+    try {
+      // Sauvegarder les flashcards
+      if (content.flashcards && content.flashcards.length > 0) {
+        const existingFlashcards = JSON.parse(localStorage.getItem('flashcards') || '[]');
+        const newFlashcards = content.flashcards.map((card, index) => ({
+          id: `generated_${Date.now()}_${index}`,
+          question: card.question,
+          answer: card.answer,
+          subject: content.subject,
+          source: fileName,
+          generated: true,
+          studied: false,
+          correctAnswers: 0,
+          incorrectAnswers: 0,
+          lastStudied: null
+        }));
+        
+        localStorage.setItem('flashcards', JSON.stringify([...existingFlashcards, ...newFlashcards]));
+      }
+
+      // Sauvegarder les QCM
+      if (content.qcm && content.qcm.length > 0) {
+        const existingQCM = JSON.parse(localStorage.getItem('qcm_data') || '{}');
+        const qcmId = `generated_${Date.now()}`;
+        
+        existingQCM[qcmId] = {
+          id: qcmId,
+          title: `QCM généré - ${fileName}`,
+          subject: content.subject,
+          questions: content.qcm,
+          source: fileName,
+          generated: true,
+          createdAt: new Date().toISOString(),
+          completed: false
+        };
+        
+        localStorage.setItem('qcm_data', JSON.stringify(existingQCM));
+      }
+
+      // Sauvegarder les résumés
+      if (content.summary) {
+        const existingResumes = JSON.parse(localStorage.getItem('resumes') || '{}');
+        const resumeId = `generated_${Date.now()}`;
+        
+        existingResumes[resumeId] = {
+          id: resumeId,
+          title: `Résumé - ${fileName}`,
+          content: content.summary,
+          subject: content.subject,
+          source: fileName,
+          generated: true,
+          createdAt: new Date().toISOString(),
+          originalText: content.originalText.substring(0, 500) + '...'
+        };
+        
+        localStorage.setItem('resumes', JSON.stringify(existingResumes));
+      }
+
+      // Ajouter la matière si elle n'existe pas
+      const subjects = JSON.parse(localStorage.getItem('subjects') || '[]');
+      if (!subjects.includes(content.subject)) {
+        subjects.push(content.subject);
+        localStorage.setItem('subjects', JSON.stringify(subjects));
+      }
+
+      return {
+        flashcards: content.flashcards?.length || 0,
+        qcm: content.qcm?.length || 0,
+        summary: content.summary ? 1 : 0
+      };
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du contenu généré:', error);
+      throw error;
+    }
   }
 
   validateFile(file) {
