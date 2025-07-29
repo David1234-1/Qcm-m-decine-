@@ -47,12 +47,16 @@ class AIService {
           model: this.model,
           messages: this.buildMessages(prompt, context),
           max_tokens: this.maxTokens,
-          temperature: 0.7
+          temperature: 0.7,
+          top_p: 0.9,
+          frequency_penalty: 0.1,
+          presence_penalty: 0.1
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Erreur API: ${response.status} - ${errorData.error?.message || 'Erreur inconnue'}`);
       }
 
       const data = await response.json();
@@ -67,17 +71,30 @@ class AIService {
     const messages = [
       {
         role: 'system',
-        content: `Tu es un assistant pédagogique spécialisé dans l'aide aux étudiants. 
-        Tu dois répondre de manière claire, pédagogique et adaptée au niveau de l'étudiant.
-        Si un contexte de cours est fourni, utilise-le pour donner des réponses précises et pertinentes.
-        Réponds toujours en français.`
+        content: `Tu es StudyHub, un assistant pédagogique intelligent spécialisé dans l'aide aux étudiants français.
+
+MISSION : Aider les étudiants à mieux comprendre et réviser leurs cours.
+
+RÈGLES IMPORTANTES :
+1. Réponds TOUJOURS en français
+2. Sois pédagogique, clair et précis
+3. Adapte tes réponses au niveau de l'étudiant
+4. Utilise des exemples concrets quand c'est possible
+5. Structure tes réponses de manière logique
+6. Si tu génères du JSON, respecte strictement le format demandé
+7. Sois encourageant et motivant
+
+CONTEXTE : Tu as accès aux documents de cours de l'étudiant pour donner des réponses personnalisées.`
       }
     ];
 
     if (context) {
       messages.push({
         role: 'system',
-        content: `Contexte du cours: ${JSON.stringify(context)}`
+        content: `CONTEXTE DU COURS ACTUEL :
+${typeof context === 'string' ? context : JSON.stringify(context, null, 2)}
+
+Utilise ce contexte pour donner des réponses précises et pertinentes.`
       });
     }
 
@@ -160,23 +177,32 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
   }
 
   async generateQCM(content, count = 10) {
-    const prompt = `Génère ${count} questions de QCM basées sur ce contenu de cours. 
-    Les questions doivent être variées (définitions, applications, calculs, etc.).
-    Chaque question doit avoir 4 réponses possibles avec une seule bonne réponse.
-    Format JSON attendu :
+    const prompt = `Génère ${count} questions de QCM de qualité basées sur ce contenu de cours.
+
+REQUIS :
+- Questions variées : définitions, applications pratiques, calculs, concepts théoriques
+- 4 réponses possibles par question (A, B, C, D)
+- Une seule réponse correcte
+- Explication détaillée de la réponse correcte
+- Niveau de difficulté (easy, medium, hard)
+
+FORMAT JSON STRICT :
+{
+  "questions": [
     {
-      "questions": [
-        {
-          "question": "Question text",
-          "answers": ["A", "B", "C", "D"],
-          "correctAnswer": 0,
-          "explanation": "Explication détaillée de la réponse",
-          "difficulty": "easy|medium|hard"
-        }
-      ]
+      "question": "Question claire et précise",
+      "answers": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"],
+      "correctAnswer": 0,
+      "explanation": "Explication pédagogique détaillée",
+      "difficulty": "easy"
     }
-    
-    Contenu du cours : ${content.substring(0, 3000)}`;
+  ]
+}
+
+CONTENU DU COURS :
+${content.substring(0, 4000)}
+
+IMPORTANT : Respecte exactement le format JSON demandé.`;
 
     try {
       const response = await this.generateResponse(prompt);
@@ -188,11 +214,19 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
           const qcm = JSON.parse(jsonMatch[0]);
           // Valider que chaque question a la structure attendue
           if (qcm.questions && Array.isArray(qcm.questions)) {
-            return qcm.questions.filter(q => q.question && q.answers && q.answers.length === 4 && typeof q.correctAnswer === 'number');
+            const validQuestions = qcm.questions.filter(q => 
+              q.question && 
+              q.answers && 
+              q.answers.length === 4 && 
+              typeof q.correctAnswer === 'number' &&
+              q.correctAnswer >= 0 && 
+              q.correctAnswer < 4
+            );
+            return validQuestions.slice(0, count);
           }
         }
       } catch (e) {
-        console.warn('Impossible de parser la réponse JSON, génération de QCM mock');
+        console.warn('Impossible de parser la réponse JSON, génération de QCM mock:', e);
       }
       
       // Fallback vers des QCM générés automatiquement
@@ -239,14 +273,26 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
   }
 
   async generateSummary(content) {
-    const prompt = `Génère un résumé clair et structuré de ce contenu de cours. 
-    Le résumé doit inclure :
-    - Les points clés principaux
-    - Les concepts importants
-    - Une structure logique
-    - Maximum 300 mots
-    
-    Contenu : ${content}`;
+    const prompt = `Génère un résumé clair et structuré de ce contenu de cours.
+
+REQUIS :
+- Points clés principaux mis en évidence
+- Concepts importants expliqués
+- Structure logique et organisée
+- Maximum 400 mots
+- Style pédagogique et accessible
+
+STRUCTURE SUGGÉRÉE :
+1. Introduction générale
+2. Points clés principaux
+3. Concepts importants
+4. Applications pratiques
+5. Conclusion
+
+CONTENU DU COURS :
+${content.substring(0, 4000)}
+
+IMPORTANT : Sois précis, pédagogique et structuré.`;
 
     try {
       const response = await this.generateResponse(prompt);
@@ -273,21 +319,29 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
   }
 
   async generateFlashcards(content, count = 10) {
-    const prompt = `Génère ${count} flashcards basées sur ce contenu de cours.
-    Les flashcards doivent couvrir les concepts clés, définitions, formules importantes.
-    Chaque flashcard doit avoir une question claire et une réponse détaillée.
-    Format JSON attendu :
+    const prompt = `Génère ${count} flashcards de qualité basées sur ce contenu de cours.
+
+REQUIS :
+- Couvrir les concepts clés, définitions importantes, formules, théorèmes
+- Questions claires et précises
+- Réponses détaillées et pédagogiques
+- Catégorisation (definition, formula, concept, application)
+
+FORMAT JSON STRICT :
+{
+  "flashcards": [
     {
-      "flashcards": [
-        {
-          "question": "Question claire et précise",
-          "answer": "Réponse détaillée et pédagogique",
-          "category": "definition|formula|concept|application"
-        }
-      ]
+      "question": "Question claire et précise",
+      "answer": "Réponse détaillée et pédagogique avec exemples si possible",
+      "category": "definition"
     }
-    
-    Contenu : ${content.substring(0, 3000)}`;
+  ]
+}
+
+CONTENU DU COURS :
+${content.substring(0, 4000)}
+
+IMPORTANT : Respecte exactement le format JSON demandé.`;
 
     try {
       const response = await this.generateResponse(prompt);
@@ -298,11 +352,17 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
           const flashcards = JSON.parse(jsonMatch[0]);
           // Valider que chaque flashcard a la structure attendue
           if (flashcards.flashcards && Array.isArray(flashcards.flashcards)) {
-            return flashcards.flashcards.filter(f => f.question && f.answer);
+            const validFlashcards = flashcards.flashcards.filter(f => 
+              f.question && 
+              f.answer && 
+              f.question.trim().length > 0 && 
+              f.answer.trim().length > 0
+            );
+            return validFlashcards.slice(0, count);
           }
         }
       } catch (e) {
-        console.warn('Impossible de parser la réponse JSON, génération de flashcards mock');
+        console.warn('Impossible de parser les flashcards JSON:', e);
       }
       
       return this.generateMockFlashcards(content, count);
@@ -338,6 +398,138 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
     };
     
     return questions[concept] || 'Question sur le concept';
+  }
+
+  async analyzeContent(content) {
+    const prompt = `Analyse ce contenu de cours et fournis une analyse détaillée.
+
+REQUIS :
+- Sujet principal identifié
+- Concepts clés extraits
+- Niveau de difficulté estimé
+- Mots-clés importants
+- Structure du contenu
+
+FORMAT JSON STRICT :
+{
+  "subject": "Sujet principal",
+  "mainConcepts": ["Concept 1", "Concept 2", "Concept 3"],
+  "difficulty": "beginner|intermediate|advanced",
+  "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
+  "structure": "Description de la structure",
+  "estimatedTime": "Temps estimé de révision en minutes"
+}
+
+CONTENU :
+${content.substring(0, 3000)}
+
+IMPORTANT : Respecte exactement le format JSON demandé.`;
+
+    try {
+      const response = await this.generateResponse(prompt);
+      
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.warn('Impossible de parser l\'analyse JSON:', e);
+      }
+      
+      return this.generateMockAnalysis(content);
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse du contenu:', error);
+      return this.generateMockAnalysis(content);
+    }
+  }
+
+  generateMockAnalysis(content) {
+    return {
+      subject: "Matière générale",
+      mainConcepts: ["Concept principal 1", "Concept principal 2", "Concept principal 3"],
+      difficulty: "intermediate",
+      keywords: ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
+      structure: "Structure standard du cours",
+      estimatedTime: "30"
+    };
+  }
+
+  async generateStudyPlan(content, studyTime = 60) {
+    const prompt = `Génère un plan d'étude personnalisé basé sur ce contenu.
+
+REQUIS :
+- Plan structuré par sessions
+- Objectifs d'apprentissage clairs
+- Méthodes de révision recommandées
+- Durée estimée par session
+
+FORMAT JSON STRICT :
+{
+  "plan": [
+    {
+      "session": 1,
+      "title": "Titre de la session",
+      "objectives": ["Objectif 1", "Objectif 2"],
+      "methods": ["Méthode 1", "Méthode 2"],
+      "duration": 15,
+      "focus": "Description du focus"
+    }
+  ],
+  "totalTime": 60,
+  "recommendations": ["Recommandation 1", "Recommandation 2"]
+}
+
+CONTENU :
+${content.substring(0, 3000)}
+
+TEMPS DISPONIBLE : ${studyTime} minutes
+
+IMPORTANT : Respecte exactement le format JSON demandé.`;
+
+    try {
+      const response = await this.generateResponse(prompt);
+      
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.warn('Impossible de parser le plan d\'étude JSON:', e);
+      }
+      
+      return this.generateMockStudyPlan(studyTime);
+    } catch (error) {
+      console.error('Erreur lors de la génération du plan d\'étude:', error);
+      return this.generateMockStudyPlan(studyTime);
+    }
+  }
+
+  generateMockStudyPlan(studyTime) {
+    const sessions = Math.ceil(studyTime / 20);
+    const plan = [];
+    
+    for (let i = 1; i <= sessions; i++) {
+      plan.push({
+        session: i,
+        title: `Session ${i} - Révision`,
+        objectives: [`Objectif ${i}.1`, `Objectif ${i}.2`],
+        methods: ["Flashcards", "QCM"],
+        duration: Math.min(20, studyTime - (i - 1) * 20),
+        focus: `Focus sur les concepts de la session ${i}`
+      });
+    }
+    
+    return {
+      plan: plan,
+      totalTime: studyTime,
+      recommendations: [
+        "Révisez régulièrement",
+        "Faites des pauses entre les sessions",
+        "Testez vos connaissances avec les QCM"
+      ]
+    };
   }
 }
 

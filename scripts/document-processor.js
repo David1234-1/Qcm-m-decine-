@@ -229,29 +229,94 @@ Références :
       generateSummary = true,
       generateQCM = true,
       generateFlashcards = true,
-      qcmCount = 10,
-      flashcardCount = 10,
+      generateAnalysis = true,
+      generateStudyPlan = true,
+      qcmCount = 15,
+      flashcardCount = 20,
       subject = 'Général'
     } = options;
     
     const result = {
       originalText: text,
-      analysis: await this.analyzeContent(text),
-      concepts: await this.extractKeyConcepts(text),
       subject: subject,
       generatedAt: new Date().toISOString()
     };
     
-    if (generateSummary && window.AIService) {
-      result.summary = await window.AIService.generateSummary(text);
+    // Analyse du contenu avec IA
+    if (generateAnalysis && window.AIService) {
+      try {
+        result.analysis = await window.AIService.analyzeContent(text);
+        // Mettre à jour le sujet si détecté par l'IA
+        if (result.analysis.subject && result.analysis.subject !== "Matière générale") {
+          result.subject = result.analysis.subject;
+        }
+      } catch (error) {
+        console.warn('Erreur lors de l\'analyse IA:', error);
+        result.analysis = await this.analyzeContent(text);
+      }
+    } else {
+      result.analysis = await this.analyzeContent(text);
     }
     
-    if (generateQCM && window.AIService) {
-      result.qcm = await window.AIService.generateQCM(text, qcmCount);
-    }
+    // Extraction des concepts clés
+    result.concepts = await this.extractKeyConcepts(text);
     
-    if (generateFlashcards && window.AIService) {
-      result.flashcards = await window.AIService.generateFlashcards(text, flashcardCount);
+    // Génération du contenu avec IA
+    if (window.AIService) {
+      const promises = [];
+      
+      if (generateSummary) {
+        promises.push(
+          window.AIService.generateSummary(text)
+            .then(summary => { result.summary = summary; })
+            .catch(error => {
+              console.warn('Erreur lors de la génération du résumé:', error);
+              result.summary = this.generateMockSummary(text);
+            })
+        );
+      }
+      
+      if (generateQCM) {
+        promises.push(
+          window.AIService.generateQCM(text, qcmCount)
+            .then(qcm => { result.qcm = qcm; })
+            .catch(error => {
+              console.warn('Erreur lors de la génération QCM:', error);
+              result.qcm = this.generateMockQCM(text, qcmCount);
+            })
+        );
+      }
+      
+      if (generateFlashcards) {
+        promises.push(
+          window.AIService.generateFlashcards(text, flashcardCount)
+            .then(flashcards => { result.flashcards = flashcards; })
+            .catch(error => {
+              console.warn('Erreur lors de la génération flashcards:', error);
+              result.flashcards = this.generateMockFlashcards(text, flashcardCount);
+            })
+        );
+      }
+      
+      if (generateStudyPlan) {
+        promises.push(
+          window.AIService.generateStudyPlan(text, 60)
+            .then(studyPlan => { result.studyPlan = studyPlan; })
+            .catch(error => {
+              console.warn('Erreur lors de la génération du plan d\'étude:', error);
+              result.studyPlan = this.generateMockStudyPlan(60);
+            })
+        );
+      }
+      
+      // Attendre que toutes les générations soient terminées
+      await Promise.all(promises);
+    } else {
+      // Fallback vers les méthodes mock
+      if (generateSummary) result.summary = this.generateMockSummary(text);
+      if (generateQCM) result.qcm = this.generateMockQCM(text, qcmCount);
+      if (generateFlashcards) result.flashcards = this.generateMockFlashcards(text, flashcardCount);
+      if (generateStudyPlan) result.studyPlan = this.generateMockStudyPlan(60);
     }
     
     return result;
@@ -347,6 +412,80 @@ Références :
     }
     
     return true;
+  }
+
+  generateMockSummary(text) {
+    return `Résumé automatique du contenu :
+
+**Points clés :**
+• Concept principal identifié dans le document
+• Notions importantes à retenir
+• Applications pratiques mentionnées
+
+**Structure du contenu :**
+Le document présente une approche structurée du sujet, avec des explications détaillées et des exemples concrets.
+
+**Recommandations :**
+Pour une révision efficace, concentrez-vous sur les concepts principaux et pratiquez avec les QCM générés.`;
+  }
+
+  generateMockQCM(text, count) {
+    const questions = [];
+    for (let i = 0; i < count; i++) {
+      questions.push({
+        question: `Question ${i + 1} sur le contenu du document`,
+        answers: [
+          `Réponse A - Option ${i + 1}`,
+          `Réponse B - Option ${i + 1}`,
+          `Réponse C - Option ${i + 1}`,
+          `Réponse D - Option ${i + 1}`
+        ],
+        correctAnswer: Math.floor(Math.random() * 4),
+        explanation: `Explication de la réponse pour la question ${i + 1}`,
+        difficulty: ['easy', 'medium', 'hard'][Math.floor(Math.random() * 3)]
+      });
+    }
+    return questions;
+  }
+
+  generateMockFlashcards(text, count) {
+    const flashcards = [];
+    const categories = ['definition', 'formula', 'concept', 'application'];
+    
+    for (let i = 0; i < count; i++) {
+      flashcards.push({
+        question: `Question ${i + 1} sur le contenu du document`,
+        answer: `Réponse détaillée pour la question ${i + 1} avec explications et exemples.`,
+        category: categories[i % categories.length]
+      });
+    }
+    return flashcards;
+  }
+
+  generateMockStudyPlan(studyTime) {
+    const sessions = Math.ceil(studyTime / 20);
+    const plan = [];
+    
+    for (let i = 1; i <= sessions; i++) {
+      plan.push({
+        session: i,
+        title: `Session ${i} - Révision du contenu`,
+        objectives: [`Comprendre les concepts de la session ${i}`, `Pratiquer avec les exercices`],
+        methods: ["Flashcards", "QCM", "Lecture"],
+        duration: Math.min(20, studyTime - (i - 1) * 20),
+        focus: `Focus sur les concepts principaux de la session ${i}`
+      });
+    }
+    
+    return {
+      plan: plan,
+      totalTime: studyTime,
+      recommendations: [
+        "Révisez régulièrement pour une meilleure rétention",
+        "Faites des pauses entre les sessions",
+        "Testez vos connaissances avec les QCM générés"
+      ]
+    };
   }
 }
 
