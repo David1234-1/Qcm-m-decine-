@@ -95,7 +95,7 @@ class AIService {
     // Réponses contextuelles basées sur le contenu
     if (context && context.subject) {
       if (lowerPrompt.includes('concept') || lowerPrompt.includes('princip')) {
-        return `Voici les **concepts principaux** de ${context.subject.name} :
+        return `Voici les **concepts principaux** de ${context.subject} :
 
 • **Concept 1** : Définition et explication détaillée
 • **Concept 2** : Autre notion importante à maîtriser
@@ -218,11 +218,12 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
           `Réponse D - Option ${i + 1}`
         ],
         correctAnswer: Math.floor(Math.random() * 4),
-        explanation: `Explication de la réponse pour la question ${i + 1}`
+        explanation: `Explication de la réponse pour la question ${i + 1}`,
+        difficulty: ['easy', 'medium', 'hard'][Math.floor(Math.random() * 3)]
       });
     }
     
-    return { questions };
+    return questions;
   }
 
   generateQuestionText(subject) {
@@ -319,12 +320,13 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
     for (let i = 0; i < count; i++) {
       const concept = concepts[i % concepts.length];
       flashcards.push({
-        front: `${concept} ${i + 1} : ${this.generateFlashcardQuestion(concept)}`,
-        back: `Réponse détaillée pour ${concept} ${i + 1} : Explication complète du concept avec des exemples et des applications pratiques.`
+        question: `${concept} ${i + 1} : ${this.generateFlashcardQuestion(concept)}`,
+        answer: `Réponse détaillée pour ${concept} ${i + 1} : Explication complète du concept avec des exemples et des applications pratiques.`,
+        category: concept.toLowerCase()
       });
     }
     
-    return { flashcards };
+    return flashcards;
   }
 
   generateFlashcardQuestion(concept) {
@@ -342,4 +344,6 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
 }
 
 // Initialiser le service IA
-window.AIService = new AIService();
+if (typeof window !== 'undefined') {
+  window.AIService = new AIService();
+}

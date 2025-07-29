@@ -242,15 +242,24 @@ Références :
       generatedAt: new Date().toISOString()
     };
     
-    if (generateSummary && window.AIService) {
+    // S'assurer que l'AIService est disponible
+    if (!window.AIService) {
+      console.warn('AIService non disponible, utilisation du mode simulation');
+      // Créer un service IA temporaire si nécessaire
+      if (!window.AIService) {
+        window.AIService = new AIService();
+      }
+    }
+    
+    if (generateSummary) {
       result.summary = await window.AIService.generateSummary(text);
     }
     
-    if (generateQCM && window.AIService) {
+    if (generateQCM) {
       result.qcm = await window.AIService.generateQCM(text, qcmCount);
     }
     
-    if (generateFlashcards && window.AIService) {
+    if (generateFlashcards) {
       result.flashcards = await window.AIService.generateFlashcards(text, flashcardCount);
     }
     
@@ -351,4 +360,6 @@ Références :
 }
 
 // Initialiser le processeur de documents
-window.DocumentProcessor = new DocumentProcessor();
+if (typeof window !== 'undefined') {
+  window.DocumentProcessor = new DocumentProcessor();
+}

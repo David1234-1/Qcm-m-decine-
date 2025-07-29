@@ -65,14 +65,14 @@ class AIChatManager {
     
     subjects.forEach(subject => {
       const option = document.createElement('option');
-      option.value = subject.id;
-      option.textContent = subject.name;
+      option.value = subject;
+      option.textContent = subject;
       this.subjectSelect.appendChild(option);
     });
   }
 
-  selectSubject(subjectId) {
-    if (!subjectId) {
+  selectSubject(subjectName) {
+    if (!subjectName) {
       this.currentSubject = null;
       this.subjectInfo.classList.add('hidden');
       this.contextContent.innerHTML = `
@@ -84,14 +84,11 @@ class AIChatManager {
       return;
     }
 
-    const subjects = JSON.parse(localStorage.getItem('subjects') || '[]');
-    this.currentSubject = subjects.find(s => s.id === subjectId);
+    this.currentSubject = { name: subjectName };
     
-    if (this.currentSubject) {
-      this.updateSubjectInfo();
-      this.updateContextContent();
-      this.subjectInfo.classList.remove('hidden');
-    }
+    this.updateSubjectInfo();
+    this.updateContextContent();
+    this.subjectInfo.classList.remove('hidden');
   }
 
   updateSubjectInfo() {
