@@ -138,8 +138,19 @@ class AuthManager {
   async handleLogin(e) {
     e.preventDefault();
     
-    const email = document.getElementById('login-email').value;
+    const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
+    
+    // Validation
+    if (!email || !password) {
+      NotificationManager.show('Veuillez remplir tous les champs', 'error');
+      return;
+    }
+    
+    if (!this.isValidEmail(email)) {
+      NotificationManager.show('Veuillez entrer une adresse email valide', 'error');
+      return;
+    }
     
     try {
       await this.login(email, password);
@@ -152,18 +163,29 @@ class AuthManager {
   async handleRegister(e) {
     e.preventDefault();
     
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
+    const name = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
     const password = document.getElementById('register-password').value;
     const confirmPassword = document.getElementById('register-confirm-password').value;
     
-    if (password !== confirmPassword) {
-      NotificationManager.show('Les mots de passe ne correspondent pas', 'error');
+    // Validation
+    if (!name || !email || !password || !confirmPassword) {
+      NotificationManager.show('Veuillez remplir tous les champs', 'error');
+      return;
+    }
+    
+    if (!this.isValidEmail(email)) {
+      NotificationManager.show('Veuillez entrer une adresse email valide', 'error');
       return;
     }
     
     if (password.length < 6) {
       NotificationManager.show('Le mot de passe doit contenir au moins 6 caractères', 'error');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      NotificationManager.show('Les mots de passe ne correspondent pas', 'error');
       return;
     }
     
@@ -173,6 +195,11 @@ class AuthManager {
     } catch (error) {
       NotificationManager.show('Erreur d\'inscription: ' + error.message, 'error');
     }
+  }
+
+  isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   }
 
   async handleResetPassword(e) {
@@ -190,21 +217,70 @@ class AuthManager {
   }
 
   async login(email, password) {
-    const { auth, signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
-    return signInWithEmailAndPassword(auth, email, password);
+    try {
+      const { auth, signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
+      return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      let errorMessage = 'Erreur de connexion';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'Aucun compte trouvé avec cet email';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Mot de passe incorrect';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Adresse email invalide';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Trop de tentatives. Réessayez plus tard';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Erreur de connexion réseau';
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
+    }
   }
 
   async register(name, email, password) {
-    const { auth, createUserWithEmailAndPassword, updateProfile } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
-    
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Mettre à jour le profil avec le nom
-    await updateProfile(userCredential.user, {
-      displayName: name
-    });
-    
-    return userCredential;
+    try {
+      const { auth, createUserWithEmailAndPassword, updateProfile } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js');
+      
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Mettre à jour le profil avec le nom
+      await updateProfile(userCredential.user, {
+        displayName: name
+      });
+      
+      return userCredential;
+    } catch (error) {
+      let errorMessage = 'Erreur d\'inscription';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'Un compte existe déjà avec cet email';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Adresse email invalide';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Le mot de passe est trop faible (minimum 6 caractères)';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Erreur de connexion réseau';
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
+    }
   }
 
   async resetPassword(email) {
