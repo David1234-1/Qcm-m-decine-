@@ -267,10 +267,24 @@ class ImportManager {
       this.updateProgress(75, 'process');
       const processedContent = await window.DocumentProcessor.generateStructuredContent(
         extractedData.text,
-        fileData.processingOptions
+        {
+          generateSummary: true,
+          generateQCM: true,
+          generateFlashcards: true,
+          qcmCount: 15,
+          flashcardCount: 20,
+          subject: fileData.subject
+        }
       );
       
-      // Étape 4: Sauvegarde (100%)
+      // Étape 4: Sauvegarde automatique du contenu généré (90%)
+      this.updateProgress(90, 'save');
+      const savedContent = await window.DocumentProcessor.saveGeneratedContent(
+        processedContent,
+        fileData.file.name
+      );
+      
+      // Étape 5: Finalisation (100%)
       this.updateProgress(100, 'save');
       
       // Marquer comme terminé
@@ -278,7 +292,8 @@ class ImportManager {
       fileData.content = {
         ...processedContent,
         extractedData,
-        processedAt: new Date().toISOString()
+        processedAt: new Date().toISOString(),
+        savedContent: savedContent
       };
       
       // Mettre à jour le localStorage
@@ -292,7 +307,11 @@ class ImportManager {
       // Sauvegarder dans le cloud si l'utilisateur est connecté
       if (window.AuthManager && window.AuthManager.isAuthenticated()) {
         await window.AuthManager.saveUserDataToCloud({
-          imported_files: files
+          imported_files: files,
+          flashcards: JSON.parse(localStorage.getItem('flashcards') || '[]'),
+          qcm_data: JSON.parse(localStorage.getItem('qcm_data') || '{}'),
+          resumes: JSON.parse(localStorage.getItem('resumes') || '{}'),
+          subjects: JSON.parse(localStorage.getItem('subjects') || '[]')
         });
       }
 
@@ -301,7 +320,7 @@ class ImportManager {
         this.hideProgressModal();
         this.updateProcessingQueue();
         this.loadImportedFiles();
-        NotificationManager.show('Traitement terminé ! Contenu généré avec succès.', 'success');
+        NotificationManager.show(`Traitement terminé ! ${savedContent.flashcards} flashcards, ${savedContent.qcm} QCM et ${savedContent.summary} résumé générés.`, 'success');
       }, 1000);
       
     } catch (error) {

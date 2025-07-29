@@ -161,6 +161,7 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
 
   async generateQCM(content, count = 10) {
     const prompt = `Génère ${count} questions de QCM basées sur ce contenu de cours. 
+    Les questions doivent être variées (définitions, applications, calculs, etc.).
     Chaque question doit avoir 4 réponses possibles avec une seule bonne réponse.
     Format JSON attendu :
     {
@@ -169,12 +170,13 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
           "question": "Question text",
           "answers": ["A", "B", "C", "D"],
           "correctAnswer": 0,
-          "explanation": "Explication de la réponse"
+          "explanation": "Explication détaillée de la réponse",
+          "difficulty": "easy|medium|hard"
         }
       ]
     }
     
-    Contenu du cours : ${content}`;
+    Contenu du cours : ${content.substring(0, 3000)}`;
 
     try {
       const response = await this.generateResponse(prompt);
@@ -183,7 +185,11 @@ Je peux vous aider avec les concepts, les formules, les exemples pratiques, et b
       try {
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
+          const qcm = JSON.parse(jsonMatch[0]);
+          // Valider que chaque question a la structure attendue
+          if (qcm.questions && Array.isArray(qcm.questions)) {
+            return qcm.questions.filter(q => q.question && q.answers && q.answers.length === 4 && typeof q.correctAnswer === 'number');
+          }
         }
       } catch (e) {
         console.warn('Impossible de parser la réponse JSON, génération de QCM mock');
@@ -268,18 +274,20 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
 
   async generateFlashcards(content, count = 10) {
     const prompt = `Génère ${count} flashcards basées sur ce contenu de cours.
+    Les flashcards doivent couvrir les concepts clés, définitions, formules importantes.
     Chaque flashcard doit avoir une question claire et une réponse détaillée.
     Format JSON attendu :
     {
       "flashcards": [
         {
-          "front": "Question ou concept",
-          "back": "Réponse ou définition détaillée"
+          "question": "Question claire et précise",
+          "answer": "Réponse détaillée et pédagogique",
+          "category": "definition|formula|concept|application"
         }
       ]
     }
     
-    Contenu : ${content}`;
+    Contenu : ${content.substring(0, 3000)}`;
 
     try {
       const response = await this.generateResponse(prompt);
@@ -287,7 +295,11 @@ Le contenu est organisé de manière logique pour faciliter l'apprentissage et l
       try {
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
+          const flashcards = JSON.parse(jsonMatch[0]);
+          // Valider que chaque flashcard a la structure attendue
+          if (flashcards.flashcards && Array.isArray(flashcards.flashcards)) {
+            return flashcards.flashcards.filter(f => f.question && f.answer);
+          }
         }
       } catch (e) {
         console.warn('Impossible de parser la réponse JSON, génération de flashcards mock');

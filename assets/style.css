@@ -195,6 +195,144 @@ body {
   transform: translateY(-1px);
 }
 
+.form-footer {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-footer a {
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.form-footer a:hover {
+  color: var(--accent-secondary);
+  text-decoration: underline;
+}
+
+.form-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Notifications */
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.notification {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification.hide {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.notification-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: color 0.3s ease;
+}
+
+.notification-close:hover {
+  color: var(--text-primary);
+}
+
+.notification-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--accent-primary);
+  animation: notification-progress 5s linear;
+}
+
+.notification-success {
+  border-left: 4px solid var(--accent-success);
+}
+
+.notification-success .notification-icon {
+  color: var(--accent-success);
+}
+
+.notification-error {
+  border-left: 4px solid var(--accent-error);
+}
+
+.notification-error .notification-icon {
+  color: var(--accent-error);
+}
+
+.notification-warning {
+  border-left: 4px solid var(--accent-warning);
+}
+
+.notification-warning .notification-icon {
+  color: var(--accent-warning);
+}
+
+.notification-info {
+  border-left: 4px solid var(--accent-primary);
+}
+
+.notification-info .notification-icon {
+  color: var(--accent-primary);
+}
+
+@keyframes notification-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 /* Section utilisateur dans le header */
 .user-section {
   display: flex;
